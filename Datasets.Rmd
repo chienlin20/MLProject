@@ -1,0 +1,161 @@
+---
+title: "Datasets"
+author: "Chien Lin"
+date: "2025-07-11"
+output: html_document
+---
+
+## Data 1 : Crime Incidents in 2024 API [<https://opendata.dc.gov/datasets/DCGIS::crime-incidents-in-2024/api>]
+
+#### API Requests in R
+
+Using Shiny Web-App built in R (Shiny (Chang et al. 2021))
+
+```{r}
+
+install.packages("httr")
+install.packages("jsonlite")
+```
+
+#### Build URLS
+
+```{r}
+
+#code here 
+
+base_url <- "https://maps2.dcgis.dc.gov/dcgis/rest/" 
+info_url <- "services/FEEDS/MPD/MapServer/6/query?outFields=*&where=1%3D1&f=geojson"
+
+# combine
+
+full_url <- base::paste0(base_url, info_url)
+full_url
+```
+
+#### Call API
+
+```{r}
+
+api_call <- httr::GET(full_url)
+api_call
+
+```
+
+#### Check API response
+
+```{r}
+
+api_call$status_code
+
+```
+
+#### Check content
+
+```{r}
+
+api_call$content
+
+```
+
+#### Convert response to usable data
+
+```{r}
+
+api_char <- base::rawToChar(api_call$content)
+api_JSON <- jsonlite::fromJSON(api_char, flatte= TRUE)
+api_JSON
+
+```
+
+#### Look at elements
+
+```{r}
+
+api_JSON$features
+
+```
+
+#### Convert to Dataframes
+
+```{r}
+
+df1 <- api_JSON$features
+
+```
+
+## Data 2: Crime in Vancouver [<https://www.kaggle.com/datasets/wosaku/crime-in-vancouver/data>]
+
+#### Download Dataset
+
+```{r}
+
+#code here 
+
+df2 <- read.csv("van_crime.csv")
+head(df2)
+
+```
+
+```{r}
+
+df3 <- read.csv("van_googletrend.csv")
+head(df3)
+
+```
+
+## Data 3: Chicago Crime Dataset 2024 [<https://data.cityofchicago.org/Public-Safety/Crimes-2024/dqcy-ctma/data_preview>]
+
+```{r}
+
+#code here 
+
+df4 <- read.csv("chi_crime.csv")
+head(df4)
+
+```
+
+## Data Cleaning
+
+#### remove columns
+
+```{r}
+
+#code here
+
+df1 <- df1[, -c(1,2,3,4,5,6,10,11,12,19,20,21,22,24,25,26,27)]
+head(df1)
+
+df2 <- df2[, -c(6,7,9,10,11,12)]
+head(df2)
+
+df4 <- df4[, -c(1,2,4,5,7,15,16,17,19,20,21,22)]
+head(df4)
+
+```
+
+```{r}
+# column BID df1
+keep <- df1[,10]
+df1 <- df1[,-10]
+```
+
+#### remove na
+
+```{r}
+
+df1 <- na.omit(df1)
+df2 <- na.omit(df2)
+df4 <- na.omit(df4)
+
+```
+
+#### check num na
+
+```{r}
+
+sum(is.na(df1))
+sum(is.na(df2))
+sum(is.na(df3))
+sum(is.na(df4))
+
+```

@@ -1,0 +1,167 @@
+---
+title: "EDA"
+author: "Chien Lin"
+date: "2025-07-11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+```
+
+## Including Plots
+
+#### Plot 1:
+
+```{r, echo=FALSE}
+df4 %>% 
+  ggplot(aes(Arrest,Community.Area)) +
+  geom_boxplot() + 
+  geom_point(alpha=0.5,aes(color=Domestic)) +
+  coord_flip() +
+  theme_bw() +
+  labs(title = "Arrest vs. Not Arrest", y = "Community Area Code", x = "Arrest Status")
+```
+
+#### Plot 2:
+
+```{r, echo=FALSE}
+
+df2 %>%
+  count(TYPE, HOUR) %>%
+  ggplot(aes(x = HOUR, y = reorder(TYPE, -HOUR), fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  labs(title = "Crime Type by Hour of Day", x = "Hour", y = "Crime Type")
+
+```
+
+#### Plot 3:
+
+```{r, echo=FALSE}
+
+df2 %>%
+  count(TYPE) %>%
+  arrange(n) %>%
+  ggplot(aes(x = reorder(TYPE, n), y = n)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Counting Crime Types", x = "Crime Type", y = "Count")
+
+```
+
+#### Plot 4:
+
+```{r, echo=FALSE}
+
+df2 %>%
+  count(MONTH) %>%
+  ggplot(aes(x = MONTH, y = n)) +
+  geom_line(color = "purple") +
+  labs(title = "Monthly Crime Trend", x = "Month", y = "Crime Count")
+
+```
+
+#### Plot 5:
+
+```{r, echo=FALSE}
+
+df2 %>%
+  count(HOUR) %>%
+  ggplot(aes(x = HOUR, y = n)) +
+  geom_line(color = "purple") +
+  labs(title = "Crimes by Hour of the Day", x = "Hour", y = "Count")
+
+
+```
+
+#### Plot 6:
+
+```{r, echo=FALSE}
+
+ggplot(df1, aes(x = properties.LONGITUDE, y = properties.LATITUDE)) +
+  geom_point(alpha = 0.1, color = "blue") +
+  labs(title = "Crime Locations Map DC", x = "Longitude", y = "Latitude") +
+  coord_fixed()
+
+# todo remove outlier
+ggplot(df2, aes(x = Longitude, y = Latitude)) +
+  geom_point(alpha = 0.1, color = "blue") +
+  labs(title = "Crime Locations Map Vancouver", x = "Longitude", y = "Latitude") +
+  coord_fixed()
+
+ggplot(df4, aes(x = Longitude, y = Latitude)) +
+  geom_point(alpha = 0.1, color = "blue") +
+  labs(title = "Crime Locations Map Chicago", x = "Longitude", y = "Latitude") +
+  coord_fixed()
+```
+
+#### Plot 7:
+
+```{r}
+df4 <- df4 %>%
+  mutate(Arrest = case_when(
+    Arrest %in% c("TRUE", "true","True") ~ "Arrested",
+    Arrest %in% c("FALSE", "false","False") ~ "Not Arrested",
+    TRUE ~ NA_character_
+  ))
+```
+
+
+```{r, echo=FALSE}
+
+df4 %>%
+  count(Primary.Type, Arrest) %>%
+  ggplot(aes(x = Primary.Type, y = n, fill = Arrest)) +
+  geom_bar(stat = "identity", position = "fill") +
+  coord_flip() +
+  labs(title = "Arrest Rates by Crime Type", x = "Crime Type", y = "Proportion") +
+  scale_fill_manual(values = c("Arrested" = "green", "Not Arrested" = "red"))
+
+```
+
+#### Plot 8:
+
+```{r, echo=FALSE}
+
+df2 %>%
+  count(NEIGHBOURHOOD) %>%
+  ggplot(aes(x = reorder(NEIGHBOURHOOD, n), y = n)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Counting Neighborhoods by Crime", x = "Neighborhood", y = "Count")
+
+```
+
+#### Plot 9:
+
+```{r, echo=FALSE}
+
+df2 %>%
+  count(MONTH, TYPE) %>%
+  group_by(TYPE) %>%
+  filter(sum(n) > 1000) %>%
+  ggplot(aes(x = MONTH, y = n, color = TYPE)) +
+  geom_line() +
+  labs(title = "Crime Type Trends Over Time", x = "Month", y = "Count")
+
+```
+
+#### Plot 10:
+
+```{r, echo=FALSE}
+
+ggplot(df1, aes(x = properties.LONGITUDE, y = properties.LATITUDE)) +
+  stat_density_2d(aes(fill = after_stat(level)), geom = "polygon", alpha = 0.4) +
+  scale_fill_viridis_c() +
+  labs(title = "Crime Density Heatmap DC") +
+  coord_fixed()
+
+ggplot(df4, aes(x = Longitude, y = Latitude)) +
+  stat_density_2d(aes(fill = after_stat(level)), geom = "polygon", alpha = 0.4) +
+  scale_fill_viridis_c() +
+  labs(title = "Crime Density Heatmap Chicago") +
+  coord_fixed()
+```

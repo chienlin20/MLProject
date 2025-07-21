@@ -1,0 +1,243 @@
+---
+title: "Hierarchical Clustering"
+author: "Chien Lin"
+date: "2025-07-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Load required library
+library(lubridate)
+library(proxy)
+library(colorspace)
+library(dendextend)
+library(ggplot2)
+library(dplyr)
+```
+
+#### Prepare Dataset
+
+```{r}
+# remove irrelevant columns
+df4 <- df4[, -c(1,2,4,5,6,7,8,10,15,18,19,22)]
+```
+
+```{r}
+# gather basic information about data set
+str(df4)
+summary(df4)
+```
+
+```{r}
+# number of nas
+any(is.na(df4))
+```
+
+```{r}
+# Convert the datetime column to POSIXct
+df4$Date <- mdy_hms(df4$Date)
+
+# Extract hour and month
+df4$Hour <- hour(df4$Date)
+df4$Month <- month(df4$Date)
+
+# View result
+str(df4)
+
+```
+
+#### Save to csv
+
+```{r}
+# save cleaned data set to csv
+# write.csv(df4, "df_clust.csv", row.names = FALSE)
+```
+
+#### Load in data
+
+```{r}
+set.seed(123)
+# load in data
+df <- read.csv("df_clust.csv")
+# Sample 2000 rows randomly
+df <- df[sample(nrow(df), 10000), ]
+```
+
+```{r}
+# save labels in a separate variable and remove from data set
+label <- df$Arrest
+df$Arrest <- NULL
+df$Date <- NULL
+str(df)
+```
+
+```{r}
+# scale all column values
+df_sc <- as.data.frame(scale(df))
+summary(df_sc)
+```
+
+## Hclust
+
+```{r}
+# build distance matrix
+dist_df <- proxy::dist(df_sc, method='cosine')
+```
+
+#### Average linkage method
+
+```{r}
+# build dendrogram with average linkage method
+hclust_avg <- hclust(dist_df, method = 'average')
+plot(hclust_avg)
+```
+
+```{r}
+# cut the tree with number of clusters to be k = 2
+cut_avg <- cutree(hclust_avg, k = 2)
+```
+
+```{r}
+# visualize clusters on the dendrogram
+plot(hclust_avg)
+rect.hclust(hclust_avg , k = 2, border = 2:6)
+abline(h = 2, col = 'red')
+```
+
+```{r}
+avg_dend_obj <- as.dendrogram(hclust_avg)
+avg_col_dend <- color_branches(avg_dend_obj, h = 2)
+plot(avg_col_dend)
+```
+
+```{r}
+# count number of observations assigned to each cluster 
+df_cl <- mutate(df, cluster = cut_avg)
+count(df_cl,cluster)
+```
+
+```{r}
+ggplot(df_cl, aes(x=District, y = Ward, color = factor(cluster))) + geom_point()
+```
+
+```{r}
+table(df_cl$cluster,label)
+```
+
+#### Complete linkage method
+
+```{r}
+# build dendrogram with average linkage method
+hclust_com <- hclust(dist_df, method = 'complete')
+plot(hclust_com)
+rect.hclust(hclust_com , k = 2, border = 2:6)
+```
+
+```{r}
+avg_dend_obj <- as.dendrogram(hclust_com)
+avg_col_dend <- color_branches(avg_dend_obj, h = 2)
+plot(avg_col_dend)
+```
+
+#### Centroid linkage method
+
+```{r}
+# build dendrogram with average linkage method
+hclust_cen <- hclust(dist_df, method = 'centroid')
+plot(hclust_cen)
+rect.hclust(hclust_cen , k = 2, border = 2:6)
+abline(h = 2, col = 'red')
+```
+
+```{r}
+avg_dend_obj <- as.dendrogram(hclust_cen)
+avg_col_dend <- color_branches(avg_dend_obj, h = 2)
+plot(avg_col_dend)
+```
+
+## Kmeans
+
+```{r}
+# performing k-means by setting 3 clusters and nstart equal to 20. This last parameter 
+# is needed to run k-means with 20 different random starting assignments
+
+# standardized columns
+
+km.out <- kmeans(df_sc, centers = 3, nstart = 20)
+km.out
+```
+
+#### scree plot
+
+```{r}
+# a total of 15 clusters to look at
+n <- 15
+
+# Initialize total within sum of squares error: WSS
+wss <- numeric(n_clusters)
+
+# Look over 1 to n possible clusters
+for (i in 1:n) {
+  # Fit the model: km.out
+  km.out <- kmeans(df_sc, centers = i, nstart = 20)
+  # Save the within cluster sum of squares
+  wss[i] <- km.out$tot.withinss
+}
+
+# Plot
+wss_df <- tibble(clusters = 1:n, wss = wss)
+ 
+scree_plot <- ggplot(wss_df, aes(x = clusters, y = wss, group = 1)) +
+    geom_point(size = 4)+
+    geom_line() +
+    scale_x_continuous(breaks = c(2, 4, 6, 8, 10)) +
+    xlab('Number of clusters')
+scree_plot
+```
+
+```{r}
+scree_plot +
+    geom_hline(
+        yintercept = wss, 
+        linetype = 'dashed', 
+        col = c(rep('#000000',1),'#FF0000', rep('grey',13))
+    )
+```
+
+```{r}
+# update number of clusters
+k <- 2
+set.seed(123)
+# Build model with k clusters: km.out
+km.out <- kmeans(df_sc, centers = k, nstart = 20)
+```
+
+```{r}
+km.out
+```
+
+```{r}
+df$cluster_id <- factor(km.out$cluster)
+ggplot(df, aes(District , Ward, color = cluster_id)) +
+    geom_point(alpha = 0.25) +
+    xlab("District") +
+    ylab("Ward") + 
+    labs(color = "Aressted") +
+    ggtitle("Scatter Plot of District vs Ward")
+```
+```{r}
+head(df)
+```
+
+
+```{r}
+df$cluster_id <- factor(km.out$cluster)
+ggplot(df, aes(Beat, Ward, color = cluster_id)) +
+    geom_point(alpha = 0.25) +
+    xlab("Beat") +
+    ylab("Ward") + 
+    labs(color = "Aressted") +
+    ggtitle("Scatter Plot of Beat vs Ward")
+```
+

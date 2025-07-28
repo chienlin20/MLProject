@@ -1,0 +1,211 @@
+---
+title: "Decision Tree"
+author: "Chien Lin"
+date: "2025-07-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rpart) # Decision Tree Package
+library(rpart.plot) # Tree plotting
+#install.packages("rpart.plot")
+library(dplyr)
+library(ggplot2)
+```
+
+## Prepare dataset
+
+```{r}
+# remove irrelevant columns
+df5 <- df5[, c(-1,150)]
+```
+
+```{r}
+# gather basic information about data set
+str(df5)
+summary(df5)
+```
+
+```{r}
+# number of nas
+any(is.na(df5))
+```
+
+```{r}
+# save cleaned data set to csv
+#write.csv(df5, "df_dt.csv", row.names = FALSE)
+```
+
+#### Load in data
+
+```{r}
+set.seed(123)
+# load in data
+df <- read.csv("df_dt.csv")
+```
+
+```{r}
+# save labels
+df$label <- as.factor(df$label)
+```
+
+```{r}
+# data is imbalanced
+plot(df$label)
+```
+
+```{r}
+# Undersample class 1
+
+df_0 <- df %>% filter(label == 0)
+df_1 <- df %>% filter(label == 1)
+
+set.seed(42)
+
+df_0_sampled <- df_0 %>% sample_n(nrow(df_1))  
+
+df_new <- bind_rows(df_1, df_0_sampled)
+# df_new <- df_new[-1]
+
+plot(df_new$label)
+```
+
+```{r}
+# select related variables
+#print(names(df_new))
+data <- df_new %>% select(PolicReqPerOffic, medIncome, householdsize, PctUnemployed,
+                          TotalPctDiv, agePct12t29, PctNotHSGrad, MedRent,
+                          OfficAssgnDrugUnits, label)
+data$label <- as.factor(data$label)
+head(data)
+```
+
+```{r}
+# split into training/testing sets
+ind <- sample(2, nrow(data), replace = T, prob = c(0.8, 0.2))
+train <- data[ind == 1,]
+test <- data[ind == 2,]
+
+```
+
+```{r}
+# train decision tree
+model_tree <- rpart(label ~ ., data = train, method = "class")
+pred_tree <- predict(model_tree, test, type = "class")
+```
+
+```{r}
+# plot the tree
+rpart.plot(model_tree)
+
+```
+
+```{r}
+# accuracy
+mean(pred_tree == test$label)
+```
+
+```{r}
+# confusion matrix
+confusion <- table(Predicted = pred_tree, Actual = test$label)
+print(confusion)
+
+cm_df <- as.data.frame(confusion)
+colnames(cm_df) <- c("Predicted", "Actual", "Freq")
+
+ggplot(cm_df, aes(x = Actual, y = Predicted, fill = Freq)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = Freq), size = 6) +
+  scale_fill_gradient(low = "lightyellow", high = "tomato") +
+  labs(title = "Decision Tree Confusion Matrix", x = "Actual", y = "Predicted") +
+  theme_minimal(base_size = 14)
+
+```
+
+```{r}
+# tuning
+printcp(model_tree)
+
+pruned_tree <- prune(model_tree, cp = 0.01)
+rpart.plot(pruned_tree)
+```
+
+```{r}
+# select new variables
+print(names(df_new))
+data1 <- df_new %>% select(PctImmigRecent, PctHousOccup, medIncome, RentLowQ, householdsize, PctUnemployed,
+                          TotalPctDiv, PctNotHSGrad, MedRent, PolicCars, murders, assaults, rapes, robberies, label)
+data1$label <- as.factor(data1$label)
+head(data1)
+```
+
+```{r}
+# split into training/testing sets
+ind <- sample(2, nrow(data1), replace = T, prob = c(0.8, 0.2))
+train <- data1[ind == 1,]
+test <- data1[ind == 2,]
+head(train)
+```
+
+```{r}
+# train decision tree
+model2 <- rpart(label ~ ., data = train, method = "class")
+pred2 <- predict(model2, test, type = "class")
+# plot the tree
+rpart.plot(model2)
+# accuracy
+mean(pred2 == test$label)
+# confusion matrix
+confusion <- table(Predicted = pred2, Actual = test$label)
+print(confusion)
+
+cm_df <- as.data.frame(confusion)
+colnames(cm_df) <- c("Predicted", "Actual", "Freq")
+
+ggplot(cm_df, aes(x = Actual, y = Predicted, fill = Freq)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = Freq), size = 6) +
+  scale_fill_gradient(low = "lightyellow", high = "tomato") +
+  labs(title = "Decision Tree Confusion Matrix", x = "Actual", y = "Predicted") +
+  theme_minimal(base_size = 14)
+
+printcp(model2)
+```
+
+```{r}
+df_new$label <- as.factor(df_new$label)
+# df_new <- df_new[-1]
+df_new <- subset(df_new, select = -ViolentCrimesPerPop) #Community.Name)
+
+# split into training/testing sets
+ind <- sample(2, nrow(df_new), replace = T, prob = c(0.8, 0.2))
+train <- df_new[ind == 1,]
+test <- df_new[ind == 2,]
+head(train)
+```
+
+```{r}
+# train decision tree
+model3 <- rpart(label ~ ., data = train, method = "class")
+pred3 <- predict(model3, test, type = "class")
+# plot the tree
+rpart.plot(model3)
+# accuracy
+mean(pred3 == test$label)
+# confusion matrix
+confusion <- table(Predicted = pred3, Actual = test$label)
+print(confusion)
+
+cm_df <- as.data.frame(confusion)
+colnames(cm_df) <- c("Predicted", "Actual", "Freq")
+
+ggplot(cm_df, aes(x = Actual, y = Predicted, fill = Freq)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = Freq), size = 6) +
+  scale_fill_gradient(low = "lightyellow", high = "tomato") +
+  labs(title = "Decision Tree Confusion Matrix", x = "Actual", y = "Predicted") +
+  theme_minimal(base_size = 14)
+
+printcp(model3)
+```

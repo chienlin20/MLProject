@@ -1,0 +1,123 @@
+---
+title: "Naive Bayes"
+author: "Chien Lin"
+date: "2025-07-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(e1071)
+library(dplyr)
+library(ggplot2)
+library(corrplot)
+```
+
+## Prepare dataset
+
+```{r}
+# remove irrelevant columns
+df5 <- df5[, c(-1,150)]
+```
+
+```{r}
+# gather basic information about data set
+str(df5)
+summary(df5)
+```
+
+```{r}
+# number of nas
+any(is.na(df5))
+```
+
+```{r}
+# save cleaned data set to csv
+# write.csv(df5, "df_nb.csv", row.names = FALSE)
+```
+
+#### Load in data
+
+```{r}
+set.seed(123)
+# load in data
+df <- read.csv("df_nb.csv")
+```
+
+```{r}
+# save labels
+df$label <- as.factor(df$label)
+```
+
+```{r}
+# data is imbalanced
+plot(df$label)
+```
+
+```{r}
+# Undersample class 1
+
+df_0 <- df %>% filter(label == 0)
+df_1 <- df %>% filter(label == 1)
+
+set.seed(42)
+
+df_0_sampled <- df_0 %>% sample_n(nrow(df_1))  
+
+df_new <- bind_rows(df_1, df_0_sampled)
+
+plot(df_new$label)
+```
+
+```{r}
+# select related variables
+#print(names(df_new))
+data <- df_new %>% select(medIncome, householdsize, PctUnemployed, TotalPctDiv, 
+                          agePct12t29, label)
+data$label <- as.factor(data$label)
+head(data)
+```
+
+```{r}
+# visualization independency
+cor_matrix <- cor(data[-6], use = "complete.obs")
+corrplot(cor_matrix, method = "color", type = "upper", 
+         tl.col = "black", tl.srt = 45, 
+         addCoef.col = "black", number.cex = 0.7)
+```
+
+```{r}
+# split into training/testing sets
+ind <- sample(2, nrow(data), replace = T, prob = c(0.8, 0.2))
+train <- data[ind == 1,]
+test <- data[ind == 2,]
+
+```
+
+```{r}
+# Fit Naive Bayes
+model <- naiveBayes(label ~ ., data = train)
+pred <- predict(model, test)
+```
+
+```{r}
+# Accuracy
+mean(pred == test$label)
+```
+
+```{r}
+# Confusion matrix
+confmat <- table(Predicted = pred, Actual = test$label)
+cm_df <- as.data.frame(confmat)
+colnames(cm_df) <- c("Predicted", "Actual", "Freq")
+
+ggplot(cm_df, aes(x = Actual, y = Predicted, fill = Freq)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = Freq), vjust = 1.5, size = 6, color = "black") +
+  scale_fill_gradient(low = "lightblue", high = "red") +
+  labs(title = "Confusion Matrix Heatmap",
+       x = "Actual Class", y = "Predicted Class") +
+  theme_minimal(base_size = 14)
+```
+
+

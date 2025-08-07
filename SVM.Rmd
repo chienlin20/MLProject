@@ -1,0 +1,234 @@
+---
+title: "SVM"
+author: "Chien Lin"
+date: "2025-07-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(e1071)
+```
+
+## Prepare dataset
+
+```{r}
+# remove irrelevant columns
+df5 <- df5[, -c(1,150)]
+```
+
+```{r}
+# gather basic information about data set
+str(df5)
+summary(df5)
+```
+
+```{r}
+# number of nas
+any(is.na(df5))
+```
+
+```{r}
+# save cleaned data set to csv
+#write.csv(df5, "df_svm.csv", row.names = FALSE)
+```
+
+#### Load in data
+
+```{r}
+set.seed(123)
+# load in data
+df <- read.csv("clean_crimedata.csv")
+```
+
+```{r}
+# save labels
+df$label <- as.factor(df$label)
+```
+
+```{r}
+# data is imbalanced
+plot(df$label)
+```
+
+```{r}
+# Undersample class 1
+
+df_0 <- df %>% filter(label == 0)
+df_1 <- df %>% filter(label == 1)
+
+set.seed(42)
+
+df_0_sampled <- df_0 %>% sample_n(nrow(df_1))  
+
+df_new <- bind_rows(df_1, df_0_sampled)
+# df_new <- df_new[-1]
+
+plot(df_new$label)
+```
+
+```{r}
+# select related variables
+#print(names(df_new))
+data <- df_new %>% select(medIncome, assaultPerPop, label)
+data$label <- as.factor(data$label)
+head(data)
+```
+
+```{r}
+# save cleaned and selected data set to csv
+write.csv(data, "df_svm.csv", row.names = FALSE)
+```
+
+```{r}
+# scale all column values
+df_sc <- data  # make a copy first
+df_sc[, 1:2] <- scale(data[, 1:2])  # scale only columns 1 and 2
+summary(df_sc)
+```
+
+```{r}
+# split into training/testing sets
+ind <- sample(2, nrow(df_sc), replace = T, prob = c(0.8, 0.2))
+train <- df_sc[ind == 1,]
+test <- df_sc[ind == 2,]
+
+```
+
+```{r}
+# train svm linear cost 10
+linfit = svm(label ~ ., data = train, kernel = "linear", cost = 10, scale = FALSE)
+summary(linfit)
+pred1 <- predict(linfit, test, type = "class")
+# plot svm
+plot(linfit, train)
+# accuracy
+mean(pred1 == test$label)
+# confusion matrix
+confusion <- table(Predicted = pred1, Actual = test$label)
+print(confusion)
+```
+
+```{r}
+# perform 10fold cross validation on linear kernel
+set.seed(1)
+tune_out = tune(svm, 
+                label~., 
+                data = train, 
+                kernel = "linear", 
+                ranges = list(cost = c(0.001, 0.01, 0.1, 1,5,10,100)))
+#summary(tune_out)
+bestmod1 = tune_out$best.model
+summary(bestmod1)
+predmod1 <- predict(bestmod1, test, type = "class")
+# plot svm
+plot(bestmod1, train)
+# accuracy
+mean(predmod1 == test$label)
+# confusion matrix
+confusion <- table(Predicted = predmod1, Actual = test$label)
+print(confusion)
+
+cm_df <- as.data.frame(confusion)
+colnames(cm_df) <- c("Predicted", "Actual", "Freq")
+
+ggplot(cm_df, aes(x = Actual, y = Predicted, fill = Freq)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = Freq), size = 6) +
+  scale_fill_gradient(low = "lightyellow", high = "tomato") +
+  labs(title = "SVM Linear Confusion Matrix", x = "Actual", y = "Predicted") +
+  theme_minimal(base_size = 14)
+```
+
+```{r}
+# train svm radial cost 5
+radfit = svm(label ~ ., data = train, scale = FALSE, kernel = "radial", cost = 5)
+summary(radfit)
+pred2 <- predict(radfit, test, type = "class")
+# plot svm
+plot(radfit, train)
+# accuracy
+mean(pred2 == test$label)
+# confusion matrix
+confusion <- table(Predicted = pred2, Actual = test$label)
+print(confusion)
+```
+
+```{r}
+# perform 10fold cross validation on linear kernel
+set.seed(1)
+tune_out = tune(svm, 
+                label~., 
+                data = train, 
+                kernel = "radial", 
+                ranges = list(cost = c(0.001, 0.01, 0.1, 1,5,10,100), gamma = c(0.5,1,2,3,4)))
+#summary(tune_out)
+bestmod2 = tune_out$best.model
+summary(bestmod2)
+predmod2 <- predict(bestmod2, test, type = "class")
+# plot svm
+plot(bestmod2, train)
+# accuracy
+mean(predmod2 == test$label)
+# confusion matrix
+confusion <- table(Predicted = predmod2, Actual = test$label)
+print(confusion)
+
+cm_df <- as.data.frame(confusion)
+colnames(cm_df) <- c("Predicted", "Actual", "Freq")
+
+ggplot(cm_df, aes(x = Actual, y = Predicted, fill = Freq)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = Freq), size = 6) +
+  scale_fill_gradient(low = "lightyellow", high = "tomato") +
+  labs(title = "SVM Radial Confusion Matrix", x = "Actual", y = "Predicted") +
+  theme_minimal(base_size = 14)
+```
+
+```{r}
+# train svm poly cost 1
+polyfit = svm(label ~ ., data = train, scale = FALSE, kernel = "polynomial", degree = 2, cost=1)
+summary(polyfit)
+pred3 <- predict(polyfit, test, type = "class")
+# plot svm
+plot(polyfit, train)
+# accuracy
+mean(pred3 == test$label)
+# confusion matrix
+confusion <- table(Predicted = pred3, Actual = test$label)
+print(confusion)
+```
+
+```{r}
+# perform 10fold cross validation on poly kernel
+set.seed(1)
+tune_out = tune(svm, 
+                label~., 
+                data = train, 
+                kernel = "polynomial", 
+                ranges = list(cost = c(0.001, 0.01, 0.1, 1,5,10,100)))
+#summary(tune_out)
+bestmod3 = tune_out$best.model
+summary(bestmod3)
+predmod3 <- predict(bestmod3, test, type = "class")
+# plot svm
+plot(bestmod3, train)
+# accuracy
+mean(predmod3 == test$label)
+# confusion matrix
+confusion <- table(Predicted = predmod3, Actual = test$label)
+print(confusion)
+
+cm_df <- as.data.frame(confusion)
+colnames(cm_df) <- c("Predicted", "Actual", "Freq")
+
+ggplot(cm_df, aes(x = Actual, y = Predicted, fill = Freq)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = Freq), size = 6) +
+  scale_fill_gradient(low = "lightyellow", high = "tomato") +
+  labs(title = "SVM Polynomial Confusion Matrix", x = "Actual", y = "Predicted") +
+  theme_minimal(base_size = 14)
+```
+
